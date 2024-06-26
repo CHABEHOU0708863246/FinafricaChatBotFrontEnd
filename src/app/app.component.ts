@@ -1,29 +1,40 @@
 import { HttpClientModule } from '@angular/common/http';
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { InsurancePack } from './core/models/InsurancePack';
 import { VehicleInfo } from './core/models/VehicleInfo';
-import { FleetQuoteService } from './core/services/fleet-quote.service';
+import { FleetQuoteService, RiskCategory } from './core/services/fleet-quote.service';
 import { format, Locale } from 'date-fns';
 import { VehicleInfoRequest } from './core/models/VehicleInfoRequest';
+import * as XLSX from 'xlsx';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet, HttpClientModule],
+  animations: [
+    trigger('fadeIn', [
+      state('void', style({ opacity: 0 })),
+      transition('void => *', animate('500ms ease-in')) // Transition en fondu entrant
+    ])
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
   providers: [
     FleetQuoteService
   ],
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewChecked {
 
   @ViewChild('messageInput') messageInput!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatbotContainer') chatbotContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('toggleChatbotButton') toggleChatbotButton!: ElementRef<HTMLButtonElement>;
+  @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('fileInput') fileInput!: ElementRef;
 
-  isChatbotCollapsed: boolean = false;
+  collapsed: boolean = false;
+
   vehicleInfo: VehicleInfo = {
     category: '',
     usage: '',
@@ -38,75 +49,85 @@ export class AppComponent implements OnInit {
     contractDuration: 0
   };
 
-  toggleChatbot() {
-    this.isChatbotCollapsed = !this.isChatbotCollapsed;
-    const chatbotContainer = this.chatbotContainer.nativeElement;
-    const toggleChatbotButton = this.toggleChatbotButton.nativeElement;
-
-    if (this.isChatbotCollapsed) {
-      chatbotContainer.classList.add('collapsed');
-      toggleChatbotButton.textContent = 'Agrandir';
-    } else {
-      chatbotContainer.classList.remove('collapsed');
-      toggleChatbotButton.textContent = 'Réduire';
-    }
-  }
-
-
-  selectedDuration: number | null = null;
   insurancePacks: InsurancePack[] = [];
-  selectedPack: InsurancePack | null = null;
-  additionalOptions: string[] = [];
   totalPremium: number = 0;
-  userInfo: { name: string, address: string, phone: string, email: string } = {
-    name: '',
-    address: '',
-    phone: '',
-    email: ''
-  };
+
   chatMessages: { sender: 'bot' | 'user', message: string }[] = [];
 
   currentStep: number = 0;
+
   currentQuestionIndex: number = 0;
+
   vehicleQuestions: string[] = [
-    'Catégorie du véhicule (Catégorie 1 à Catégorie 5) :',
-    'Usage du véhicule (privé, professionnel, auto-école, location, etc.) :',
-    'Genre du véhicule (tourisme, utilitaire a corrosserie, etc.) :',
-    'Puissance fiscale du véhicule (en CV) :',
-    'Type d\'énergie du véhicule (essence ou diesel) :',
-    'Nombre de places dans le véhicule :',
-    'Valeur à neuf du véhicule (en FCFA) :',
-    'Valeur de marché du véhicule (en FCFA) :',
-    'Indiquez si le véhicule possède une remorque (true pour oui, false pour non) :',
-    "Date de première immatriculation du véhicule (JJ/MM/AAAA) :",
-    "Durée du contrat d'assurance souhaitée (en mois) :"
+    '1. Catégorie du véhicule (Exemple : Catégorie 1) :',
+    '2. Usage du véhicule (Exemple : privé, professionnel, auto-école, location, etc.) :',
+    '3. Genre du véhicule (Exemple : tourisme, utilitaire a corrosserie, etc.) :',
+    '4. Puissance fiscale du véhicule (Exemple : 25, en CV) :',
+    '5. Type d\'énergie du véhicule (Exemple : essence ou diesel) :',
+    '6. Nombre de places dans le véhicule (Exemple : 10) :',
+    '7. Valeur à neuf du véhicule (prix auquel le vehicule a été acheté en FCFA) :',
+    '8. Valeur de marché du véhicule (prix auquel le vehicule pourrait être vendu sur le marché en FCFA) :',
+    '9. Indiquez si le véhicule possède une remorque (oui/non) :',
+    '10. Date de première immatriculation du véhicule (JJ/MM/AAAA, Exemple : 12/01/0000) :',
+    '11. Durée du contrat d\'assurance souhaitée (en mois, Exemple : vous pouvez saisir soit 3, 6 ou 12 uniquement) :'
   ];
+
 
   initialOptions: string[] = [
     '1. Obtenir une simulation de tarification pour un véhicule particulier',
     '2. Obtenir une simulation de tarification pour une flotte de véhicules',
     '3. Comparer les offres d\'assurance',
     '4. Gérer mon contrat d\'assurance',
-    '5. Parler à un conseiller'
+    '5. Parler à un conseiller',
+    '6. En savoir plus sur OAV Finafrica'
   ];
+
+
+
 
   constructor(private fleetQuoteService: FleetQuoteService) { }
 
+
   ngOnInit() {
-    this.sendBotMessage('Bonjour ! Je suis Leila, votre assistant pour la tarification d\'assurance automobile. Comment puis-je vous aider aujourd\'hui ?');
+    setTimeout(() => {
+      this.sendBotMessage('Bonjour ! Je suis Leila, votre assistant pour la tarification d\'assurance automobile. Comment puis-je vous aider aujourd\'hui ?');
+    }, 200);
   }
 
+  ngAfterViewChecked() {
+    this.scrollToBottom();
+  }
+
+  scrollToBottom(): void {
+    try {
+      this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
+    } catch(err) { }
+  }
+
+  toggleChatbot() {
+    this.collapsed = !this.collapsed;
+    const chatbotContainer = document.querySelector('.chatbot-container');
+    if (chatbotContainer) {
+      chatbotContainer.classList.toggle('collapsed', this.collapsed);
+    }
+  }
+
+  resetPage() {
+    window.location.reload();
+  }
 
 
   sendUserMessage(message: string) {
     const cleanedMessage = message.replace(/\n/g, '');
     this.chatMessages.push({ sender: 'user', message: cleanedMessage });
     this.processUserMessage(cleanedMessage);
+    this.scrollToBottom();
   }
 
 
   sendBotMessage(message: string) {
     this.chatMessages.push({ sender: 'bot', message });
+    this.scrollToBottom();
   }
 
   async processUserMessage(message: string) {
@@ -131,22 +152,59 @@ export class AppComponent implements OnInit {
         case '5. Parler à un conseiller':
           this.contactAdvisor();
           break;
-        default:
-          this.sendBotMessage('Je ne comprends pas votre demande. Veuillez sélectionner une option parmi les suivantes :');
-          this.initialOptions.forEach(option => this.sendBotMessage(option));
-          break;
+        case '6. En savoir plus sur OAV Finafrica':
+            this.provideInfoAboutOAVFinafrica();
+            break;
+            default:
+              this.handleGeneralInquiry(message);
+              break;
       }
     }
   }
 
+
+  provideInfoAboutOAVFinafrica() {
+    const info = `OAV Finafrica est un outil digital d'aide à la vente de produits d'assurances développé par Finafrica, une filiale du Groupe Duval spécialisée dans l'inclusion financière et assurantielle en Afrique.
+
+  Principales fonctionnalités :
+  - Tarification et devis rapides
+  - Gestion des dossiers clients
+  - Support commercial
+  - Formation en ligne
+
+  Avantages :
+  - Gain de temps et d'efficacité pour les agents d'assurance
+  - Amélioration de la qualité du conseil
+  - Augmentation des ventes de produits d'assurance
+
+  Que souhaitez-vous savoir de plus sur OAV Finafrica ?`;
+
+    this.sendBotMessage(info);
+  }
+
+  handleGeneralInquiry(message: string) {
+    // Vous pouvez implémenter ici une logique plus avancée pour analyser la question
+    // et fournir une réponse appropriée. Pour l'instant, nous allons simplement
+    // renvoyer à l'utilisateur vers les options principales.
+
+    this.sendBotMessage("Je n'ai pas bien compris votre demande. Pouvez-vous reformuler ou choisir parmi les options suivantes :");
+    // this.resetOptions();
+  }
+
+
+
   askNextVehicleQuestion() {
     if (this.currentQuestionIndex < this.vehicleQuestions.length) {
-      this.sendBotMessage(`Veuillez fournir les informations suivantes pour votre véhicule : ${this.vehicleQuestions[this.currentQuestionIndex]}`);
+      this.sendBotMessage(`Réflexion en cours...`);
+      setTimeout(() => {
+        this.sendBotMessage(`Veuillez fournir les informations suivantes pour votre véhicule : ${this.vehicleQuestions[this.currentQuestionIndex]}`);
+      }, 1500);
     } else {
       this.currentStep = 0;
       this.simulateTarification();
     }
   }
+
 
   cleanInput(input: string): string {
     return input.replace(/\n/g, '');
@@ -201,8 +259,9 @@ export class AppComponent implements OnInit {
       const premium = await this.fleetQuoteService.calculateInsurancePremium(this.vehicleInfo).toPromise();
       if (premium !== undefined) {
         this.totalPremium = premium;
-        this.sendBotMessage(`Le montant total de votre prime d'assurance est de ${premium} FCFA.`);
-        this.displayInsurancePacks();
+        const formattedPremium = premium.toLocaleString('fr-FR');
+        this.sendBotMessage(`Le montant total de votre prime d'assurance est de ${formattedPremium} FCFA.`);
+        await this.fetchInsurancePacks();
       } else {
         this.sendBotMessage('Erreur lors du calcul de la prime d\'assurance. Prime non définie.');
       }
@@ -213,26 +272,44 @@ export class AppComponent implements OnInit {
   }
 
 
+  async fetchInsurancePacks() {
+    const totalBonusPoints = 100; // Exemple de valeur
+    const riskCategory = RiskCategory.LowRisk; // Exemple de catégorie de risque
 
-  collectFleetInfo() {
-    this.currentStep = 1;
-    this.sendBotMessage('Veuillez fournir les informations suivantes pour votre flotte de véhicules :\n' +
-      'Nombre de véhicules, Usage de chaque véhicule, Genre de chaque véhicule, Puissance fiscale de chaque véhicule, ' +
-      'Type d\'énergie de chaque véhicule, Nombre de places de chaque véhicule, Valeur à neuf de chaque véhicule, ' +
-      'Valeur de marché de chaque véhicule, Date de première immatriculation de chaque véhicule, Capacité de chargement, ' +
-      'Durée du contrat en mois');
+    this.fleetQuoteService.getInsurancePacks(totalBonusPoints, riskCategory)
+      .subscribe(
+        (packs) => {
+          if (packs) {
+            this.insurancePacks = packs; // Assignation après vérification de nullité
+          } else {
+            console.error('Erreur : la réponse des packs d\'assurance est nulle.');
+          }
+        },
+        (error) => {
+          console.error('Erreur lors de la récupération des packs d\'assurance : ', error);
+        }
+      );
   }
 
-  compareInsuranceOffers() {
-    this.currentStep = 2;
-    this.sendBotMessage('Veuillez fournir les détails de votre couverture actuelle et les critères de comparaison :\n' +
-      'Nom de l\'assureur actuel, Type de couverture, Montant de la prime, Durée de la couverture, Options supplémentaires souhaitées');
-  }
+  collectFleetInfo(event: any) {
+    const file: File = event.target.files[0];
+    const reader: FileReader = new FileReader();
 
-  manageInsuranceContract() {
-    this.currentStep = 2;
-    this.sendBotMessage('Veuillez fournir les informations suivantes pour gérer votre contrat d\'assurance :\n' +
-      'Numéro de contrat, Nom de l\'assureur, Type de contrat, Date de début et de fin du contrat, Options à modifier');
+    reader.onload = (e: any) => {
+      const workbook: XLSX.WorkBook = XLSX.read(e.target.result, { type: 'binary' });
+      const sheetName: string = workbook.SheetNames[0];
+      const worksheet: XLSX.WorkSheet = workbook.Sheets[sheetName];
+
+      const fleetData: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      console.log(fleetData);
+
+
+      this.sendBotMessage(`Données de flotte importées avec succès depuis le fichier Excel.`);
+      this.currentStep = 0;
+    };
+
+    reader.readAsBinaryString(file);
   }
 
   contactAdvisor() {
@@ -267,116 +344,6 @@ export class AppComponent implements OnInit {
 }
 
 
-
-
-
-  displayInsurancePacks() {
-    let packMessage = 'Voici les packs disponibles :\n';
-    for (const pack of this.insurancePacks) {
-      packMessage += `${pack.name} : Tarif 3 mois ${pack.price3Months} FCFA, Tarif 6 mois ${pack.price6Months} FCFA, Tarif 12 mois ${pack.price12Months} FCFA, Garanties incluses : ${pack.includedCoverages.join(', ')}\n`;
-    }
-    packMessage += 'Souhaitez-vous comparer les packs disponibles ou sélectionner directement un pack ?';
-    this.sendBotMessage(packMessage);
-  }
-
-  compareInsurancePacks() {
-    if (this.insurancePacks.length > 0) {
-      let comparisonMessage = 'Comparaison des packs d\'assurance :\n';
-      for (const pack of this.insurancePacks) {
-        comparisonMessage += `Pack: ${pack.name}\n` +
-          `- Tarif 3 mois: ${pack.price3Months} FCFA\n` +
-          `- Tarif 6 mois: ${pack.price6Months} FCFA\n` +
-          `- Tarif 12 mois: ${pack.price12Months} FCFA\n` +
-          `- Garanties incluses: ${pack.includedCoverages.join(', ')}\n\n`;
-      }
-      this.sendBotMessage(comparisonMessage);
-    } else {
-      this.sendBotMessage('Aucun pack d\'assurance disponible pour la comparaison.');
-    }
-  }
-
-  selectInsurancePack(packName: string) {
-    const selectedPack = this.insurancePacks.find((pack) => pack.name === packName);
-    if (selectedPack) {
-      this.selectedPack = selectedPack;
-      this.sendBotMessage(`Vous avez sélectionné le pack ${selectedPack.name}.`);
-      this.addAdditionalOptions();
-    } else {
-      this.sendBotMessage('Pack d\'assurance non valide. Veuillez sélectionner un pack parmi ceux proposés.');
-    }
-  }
-
-  addAdditionalOptions() {
-    this.sendBotMessage('Souhaitez-vous ajouter des options supplémentaires à votre pack ? Voici les options disponibles :');
-    // Logique pour afficher les options supplémentaires disponibles
-    this.calculateTotalPremium();
-  }
-
-  calculateTotalPremium() {
-    if (this.selectedPack) {
-      if (this.selectedDuration === null) {
-        this.sendBotMessage('Veuillez choisir la durée de votre pack d\'assurance (3 mois, 6 mois ou 12 mois).');
-      } else {
-        let totalPremium;
-        switch (this.selectedDuration) {
-          case 3:
-            totalPremium = this.selectedPack.price3Months;
-            break;
-          case 6:
-            totalPremium = this.selectedPack.price6Months;
-            break;
-          case 12:
-            totalPremium = this.selectedPack.price12Months;
-            break;
-          default:
-            this.sendBotMessage('Durée invalide. Veuillez choisir 3, 6 ou 12 mois.');
-            return;
-        }
-
-        this.totalPremium = totalPremium;
-        this.sendBotMessage(`Calcul de votre prime en cours...`);
-        this.collectUserInfo();
-      }
-    } else {
-      this.sendBotMessage('Veuillez d\'abord sélectionner un pack d\'assurance.');
-    }
-  }
-
-  selectDuration(duration: number) {
-    this.selectedDuration = duration;
-    this.calculateTotalPremium();
-  }
-
-  collectUserInfo() {
-    this.sendBotMessage('Veuillez fournir vos informations personnelles pour finaliser le devis.');
-    // Logique pour collecter les informations de l'utilisateur
-    this.displayQuoteSummary();
-  }
-
-  displayQuoteSummary() {
-    let quoteSummary = 'Voici le résumé de vos informations :\n';
-    quoteSummary += `Nom : ${this.userInfo.name}\n`;
-    quoteSummary += `Adresse : ${this.userInfo.address}\n`;
-    quoteSummary += `Téléphone : ${this.userInfo.phone}\n`;
-    quoteSummary += `Email : ${this.userInfo.email}\n`;
-    quoteSummary += `Prime annuelle : ${this.totalPremium} FCFA\n`;
-    quoteSummary += 'Compagnie d\'assurance : Finafrica\n';
-    quoteSummary += 'Produit d\'assurance : Assurance automobile tous risques\n';
-    quoteSummary += 'Voulez-vous procéder au paiement pour finaliser votre souscription ?';
-    this.sendBotMessage(quoteSummary);
-  }
-
-  processPayment() {
-    this.sendBotMessage('Merci de confirmer votre choix pour procéder au paiement sécurisé.');
-    this.fleetQuoteService.processPayment(this.totalPremium).subscribe(
-      (paymentStatus) => {
-        this.sendBotMessage(paymentStatus);
-        // Logique supplémentaire après le paiement réussi
-      }
-    );
-  }
-
-
   sendMessage() {
     const messageText = this.messageInput.nativeElement.value.trim();
     if (messageText) {
@@ -384,6 +351,35 @@ export class AppComponent implements OnInit {
       this.messageInput.nativeElement.value = '';
     }
   }
+
+
+  onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      // Process the file here
+      this.sendBotMessage(`Fichier sélectionné : ${file.name}`);
+    }
+  }
+
+
+  handleFileInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0];
+      this.uploadFile(file);
+    }
+  }
+
+  uploadFile(file: File) {
+    // Logique pour uploader le fichier
+    console.log('File uploaded:', file);
+    this.chatMessages.push({ sender: 'user', message: `Fichier uploadé: ${file.name}` });
+    this.fileInput.nativeElement.value = '';
+  }
+
+
+
 
 
 }

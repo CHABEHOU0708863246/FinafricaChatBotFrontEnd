@@ -2,14 +2,14 @@
   <div class="chatbot-header">
     <div class="chatbot-status">
       <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/55/01/99/55019965-3a65-6a67-92f2-b0dcce8aa89e/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/256x256bb.jpg" alt="Image de Leila" class="avatar-image">
-      <span>Votre Assistant</span>
+      <span>Votre Assistant pour OAV Finafrica</span>
     </div>
-    <button id="toggleChatbotButton" class="toggle-button" (click)="toggleChatbot()">Réduire</button>
+    <button id="toggleChatbotButton" class="toggle-button" (click)="toggleChatbot()">
+      <i class="fas fa-compress"></i>
+    </button>
   </div>
   <div class="chatbot-body">
-    <p class="disclaimer">J'accepte que mes données personnelles soient traitées par finafrica pour l'assistance par chat. <a href="#">Voir la politique de données</a></p>
-
-    <div class="messages-content">
+    <div class="messages-content" #messagesContainer>
       @for (message of chatMessages; track message) {
         @if (message.sender === 'user') {
           <div class="message user-message">
@@ -24,7 +24,7 @@
 
       @if (currentStep === 0) {
         <div class="message user-message">
-          <p>Comment puis-je vous aider aujourd'hui?</p>
+          <p>Merci de faire votre choix parmi les options proposées !</p>
           <div class="options">
             @for (option of initialOptions; track option) {
               <button (click)="sendUserMessage(option)">{{ option }}</button>
@@ -32,6 +32,7 @@
           </div>
         </div>
       }
+
 
       @if (currentStep === 3 && insurancePacks.length > 0) {
         <div class="insurance-options">
@@ -42,19 +43,21 @@
               <p>Tarif 6 mois: {{ pack.price6Months }} FCFA</p>
               <p>Tarif 12 mois: {{ pack.price12Months }} FCFA</p>
               <p>Garanties incluses : {{ pack.includedCoverages.join(', ') }}</p>
-              <button (click)="selectInsurancePack(pack.name)">Sélectionner</button>
             </div>
           }
         </div>
       }
     </div>
 
-    <input type="text" class="chat-input" placeholder="Votre reponse ..." #messageInput (keyup.enter)="sendMessage()">
+    <div class="input-container">
+      <input type="text" class="chat-input" placeholder="Votre réponse ..." #messageInput (keyup.enter)="sendMessage()">
+      <input type="file" id="file-upload" #fileInput (change)="handleFileInput($event)" style="display: none;">
+      <label for="file-upload" class="custom-file-upload">
+        <i class="fa fa-cloud-upload"></i>
+      </label>
+    </div>
   </div>
   <footer class="footer">
     <p>Propulsé par <a href="https://www.groupeduval.com/nos-activites/soutenir-economie-locale/microfinance/">Finafrica</a></p>
   </footer>
-
 </div>
-
-

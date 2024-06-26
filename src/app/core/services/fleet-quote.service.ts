@@ -90,6 +90,10 @@ export class FleetQuoteService {
       .pipe(catchError(this.handleError));
   }
 
+  getInsurancePacks(totalBonusPoints: number, riskCategory: RiskCategory): Observable<InsurancePack[]> {
+    return this.showInsurancePacks(totalBonusPoints, riskCategory);
+  }
+
   processPayment(amount: number): Observable<string> {
     const url = `${this.baseUrl}/process-payment`;
     return this.http.post<string>(url, { amount }, { headers: { 'Content-Type': 'application/json' } })
