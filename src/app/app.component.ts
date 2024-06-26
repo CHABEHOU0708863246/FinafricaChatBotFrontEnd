@@ -33,7 +33,10 @@ export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('fileInput') fileInput!: ElementRef;
 
+  private isChatbotCollapsed = false;
+
   collapsed: boolean = false;
+
 
   vehicleInfo: VehicleInfo = {
     category: '',
@@ -104,12 +107,38 @@ export class AppComponent implements OnInit, AfterViewChecked {
     } catch(err) { }
   }
 
-  toggleChatbot() {
-    this.collapsed = !this.collapsed;
-    const chatbotContainer = document.querySelector('.chatbot-container');
-    if (chatbotContainer) {
-      chatbotContainer.classList.toggle('collapsed', this.collapsed);
+  toggleChatbot(): void {
+    this.isChatbotCollapsed = !this.isChatbotCollapsed;
+    // Ajouter la logique pour réduire ou agrandir le chatbot
+    if (this.isChatbotCollapsed) {
+      this.chatbotContainer.nativeElement.classList.add('collapsed');
+    } else {
+      this.chatbotContainer.nativeElement.classList.remove('collapsed');
     }
+  }
+
+  onMouseDown(event: MouseEvent): void {
+    const chatbot = this.chatbotContainer.nativeElement;
+    const initialX = event.clientX - chatbot.getBoundingClientRect().left;
+    const initialY = event.clientY - chatbot.getBoundingClientRect().top;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      chatbot.style.left = moveEvent.clientX - initialX + 'px';
+      chatbot.style.top = moveEvent.clientY - initialY + 'px';
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  closeChatbot(): void {
+    // Ajouter la logique pour fermer complètement le chatbot
+    this.chatbotContainer.nativeElement.style.display = 'none';
   }
 
   resetPage() {
