@@ -13,13 +13,10 @@ import { trigger, state, style, transition, animate } from '@angular/animations'
   selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet, HttpClientModule],
-  animations: [
-    trigger('fadeIn', [
-      state('void', style({ opacity: 0 })),
-      transition('void => *', animate('500ms ease-in')) // Transition en fondu entrant
-    ])
-  ],
   templateUrl: './app.component.html',
+  host: {
+    '[attr.ngSkipHydration]': 'true',
+  },
   styleUrls: ['./app.component.scss'],
   providers: [
     FleetQuoteService
@@ -92,9 +89,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
 
   ngOnInit() {
-    setTimeout(() => {
       this.sendBotMessage('Bonjour ! Je suis Leila, votre assistant pour la tarification d\'assurance automobile. Comment puis-je vous aider aujourd\'hui ?');
-    }, 200);
   }
 
   ngAfterViewChecked() {
@@ -134,11 +129,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }
-
-  closeChatbot(): void {
-    // Ajouter la logique pour fermer complètement le chatbot
-    this.chatbotContainer.nativeElement.style.display = 'none';
   }
 
   resetPage() {
