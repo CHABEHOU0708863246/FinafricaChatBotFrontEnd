@@ -1,5 +1,5 @@
 import { HttpClientModule } from '@angular/common/http';
-import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { InsurancePack } from './core/models/InsurancePack';
 import { VehicleInfo } from './core/models/VehicleInfo';
@@ -59,11 +59,11 @@ export class AppComponent implements OnInit, AfterViewChecked {
   currentQuestionIndex: number = 0;
 
   vehicleQuestions: string[] = [
-    '1. Catégorie du véhicule (Exemple : Catégorie 1) :',
+    '1. Catégorie du véhicule (Exemple : catégorie 1) :',
     '2. Usage du véhicule (Exemple : privé, professionnel, auto-école, location, etc.) :',
     '3. Genre du véhicule (Exemple : tourisme, utilitaire a corrosserie, etc.) :',
     '4. Puissance fiscale du véhicule (Exemple : 25, en CV) :',
-    '5. Type d\'énergie du véhicule (Exemple : essence ou diesel) :',
+    '5. Type d\'énergie du véhicule (Exemple : essence, diesel, electrique, hybride) :',
     '6. Nombre de places dans le véhicule (Exemple : 10) :',
     '7. Valeur à neuf du véhicule (prix auquel le vehicule a été acheté en FCFA) :',
     '8. Valeur de marché du véhicule (prix auquel le vehicule pourrait être vendu sur le marché en FCFA) :',
@@ -85,22 +85,34 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
 
 
-  constructor(private fleetQuoteService: FleetQuoteService) { }
+  constructor(private fleetQuoteService: FleetQuoteService, private el: ElementRef, private renderer: Renderer2, private elementRef: ElementRef) { }
 
 
   ngOnInit() {
       this.sendBotMessage('Bonjour ! Je suis Leila, votre assistant pour la tarification d\'assurance automobile. Comment puis-je vous aider aujourd\'hui ?');
+      setTimeout(() => {
+        const chatbotContainer = this.elementRef.nativeElement.querySelector('.chatbot-container');
+        chatbotContainer.classList.remove('hidden');
+      }, 7000);
   }
 
   ngAfterViewChecked() {
     this.scrollToBottom();
   }
 
+  // scrollToBottom(): void {
+  //   if (this.messagesContainer && this.messagesContainer.nativeElement) {
+  //     this.messagesContainer.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  //   }
+  // }
+
   scrollToBottom(): void {
-    try {
-      this.messagesContainer.nativeElement.scrollTop = this.messagesContainer.nativeElement.scrollHeight;
-    } catch(err) { }
+    if (this.messagesContainer) {
+      const element = this.el.nativeElement.querySelector('.messages-content');
+      this.renderer.setProperty(element, 'scrollTop', element.scrollHeight);
+    }
   }
+
 
   toggleChatbot(): void {
     this.isChatbotCollapsed = !this.isChatbotCollapsed;
@@ -111,6 +123,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       this.chatbotContainer.nativeElement.classList.remove('collapsed');
     }
   }
+
 
   onMouseDown(event: MouseEvent): void {
     const chatbot = this.chatbotContainer.nativeElement;
@@ -233,37 +246,87 @@ export class AppComponent implements OnInit, AfterViewChecked {
     switch (this.currentQuestionIndex) {
       case 0:
         this.vehicleInfo.category = this.cleanInput(message);
+        if (!['categorie 1', 'categorie 2', 'categorie 3', 'categorie 4', 'categorie 5'].includes(this.vehicleInfo.category.toLowerCase())) {
+          this.sendBotMessage('Catégorie du véhicule invalide. Veuillez choisir entre categorie 1, categorie 2, categorie 3, categorie 4 ou categorie 5');
+          return;
+        }
         break;
       case 1:
         this.vehicleInfo.usage = this.cleanInput(message);
+        if (!['personnel', 'professionnel', 'mixte', 'privé', 'professionnel', 'auto-école', 'location',].includes(this.vehicleInfo.usage.toLowerCase())) {
+          this.sendBotMessage('Usage du véhicule invalide. Veuillez choisir entre personnel, professionnel ou mixte.');
+          return;
+        }
         break;
       case 2:
         this.vehicleInfo.genre = this.cleanInput(message);
+        if (this.vehicleInfo.genre.length < 2) {
+          this.sendBotMessage('Genre du véhicule invalide. Veuillez fournir plus de détails.');
+          return;
+        }
         break;
       case 3:
         this.vehicleInfo.fiscalPower = parseInt(message, 10);
+        if (isNaN(this.vehicleInfo.fiscalPower) || this.vehicleInfo.fiscalPower <= 0 || this.vehicleInfo.fiscalPower > 100) {
+          this.sendBotMessage('Puissance fiscale invalide. Veuillez entrer un nombre entre 1 et 200.');
+          return;
+        }
         break;
       case 4:
-        this.vehicleInfo.energyType = message;
+        this.vehicleInfo.energyType = this.cleanInput(message);
+        if (!['essence', 'diesel', 'électrique', 'hybride'].includes(this.vehicleInfo.energyType.toLowerCase())) {
+          this.sendBotMessage('Type d\'énergie invalide. Veuillez choisir entre essence, diesel, électrique ou hybride.');
+          return;
+        }
         break;
       case 5:
         this.vehicleInfo.seatNumber = parseInt(message, 10);
+        if (isNaN(this.vehicleInfo.seatNumber) || this.vehicleInfo.seatNumber <= 0 || this.vehicleInfo.seatNumber > 50) {
+          this.sendBotMessage('Nombre de sièges invalide. Veuillez entrer un nombre entre 1 et 50.');
+          return;
+        }
         break;
       case 6:
         this.vehicleInfo.newValue = parseFloat(message);
+        if (isNaN(this.vehicleInfo.newValue) || this.vehicleInfo.newValue <= 0) {
+          this.sendBotMessage('Valeur à neuf invalide. Veuillez entrer un nombre positif.');
+          return;
+        }
         break;
       case 7:
         this.vehicleInfo.marketValue = parseFloat(message);
+        if (isNaN(this.vehicleInfo.marketValue) || this.vehicleInfo.marketValue <= 0 || this.vehicleInfo.marketValue > this.vehicleInfo.newValue) {
+          this.sendBotMessage('Valeur marchande invalide. Elle doit être un nombre positif et ne pas dépasser la valeur achat à neuf du vehicule.');
+          return;
+        }
         break;
       case 8:
-        this.vehicleInfo.hasTrailer = message.toLowerCase() === 'true';
+        const lowercaseMessage = message.toLowerCase();
+        if (!['oui', 'non'].includes(lowercaseMessage)) {
+          this.sendBotMessage('Réponse invalide pour la remorque. Veuillez répondre par oui ou non.');
+          return;
+        }
+        this.vehicleInfo.hasTrailer = ['oui', 'true'].includes(lowercaseMessage);
         break;
       case 9:
         const dateParts = message.split('/');
-        this.vehicleInfo.firstRegistrationDate = new Date(parseInt(dateParts[2], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[0], 10)).toISOString();
+        if (dateParts.length !== 3 || dateParts.some(part => isNaN(parseInt(part, 10)))) {
+          this.sendBotMessage('Format de date invalide. Veuillez utiliser le format JJ/MM/AAAA.');
+          return;
+        }
+        const date = new Date(parseInt(dateParts[2], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[0], 10));
+        if (isNaN(date.getTime()) || date > new Date()) {
+          this.sendBotMessage('Date de première immatriculation invalide. La date ne peut pas être dans le futur.');
+          return;
+        }
+        this.vehicleInfo.firstRegistrationDate = date.toISOString();
         break;
       case 10:
         this.vehicleInfo.contractDuration = parseInt(message, 10);
+        if (isNaN(this.vehicleInfo.contractDuration) || ![3, 6, 12].includes(this.vehicleInfo.contractDuration)) {
+          this.sendBotMessage('Durée de contrat invalide. Veuillez saisir soit 3, 6 ou 12 mois.');
+          return;
+        }
         await this.calculatePremium();
         return;
     }

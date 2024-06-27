@@ -1,4 +1,4 @@
-$primary-color: #0099ff;
+$primary-color: #080657;
 $secondary-color: #f9f9f9;
 $accent-color: #051074;
 $font-family: 'Arial, sans-serif';
@@ -27,6 +27,10 @@ body {
 
   &.collapsed {
     height: 60px;
+  }
+
+  &.hidden {
+    display: none;
   }
 }
 
@@ -82,6 +86,7 @@ body {
   .messages-content {
     flex-grow: 1;
     overflow-y: auto;
+    overflow-x: auto;
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -119,10 +124,13 @@ body {
       }
 
       &.assistant-message {
-        align-self: flex-start;
-        background-color: $secondary-color;
+        background: #79F8F8 ;
         color: #333;
-        border-bottom-left-radius: 4px;
+        align-self: flex-start;
+
+        &.question {
+          background: #0c80c9;
+        }
       }
 
       &.typing-message {
@@ -152,7 +160,7 @@ body {
 
           &:hover {
             background-color: $primary-color;
-            color: white;
+            color: rgb(50, 179, 18);
           }
         }
       }
@@ -277,4 +285,72 @@ footer {
   25% { content: '.'; }
   50% { content: '..'; }
   75% { content: '...'; }
+}
+
+
+@media (max-width: 768px) {
+  .chatbot-container {
+    width: 100%;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .chatbot-header {
+    padding: 5px;
+
+    .chatbot-status {
+      .avatar-image {
+        width: 24px;
+        height: 24px;
+        margin-right: 5px;
+      }
+    }
+
+    .toggle-button {
+      font-size: 14px;
+    }
+  }
+
+  .chatbot-body {
+    padding: 5px;
+
+    .message {
+      margin-bottom: 5px;
+      padding: 5px;
+
+      &.user-message {
+        font-size: 14px;
+      }
+
+      &.assistant-message {
+        font-size: 14px;
+      }
+    }
+
+    .insurance-options {
+      gap: 5px;
+
+      .insurance-option {
+        padding: 5px;
+      }
+    }
+  }
+
+  .input-container {
+    padding: 5px;
+
+    .chat-input {
+      padding: 5px;
+    }
+
+    .custom-file-upload {
+      font-size: 14px;
+    }
+  }
+
+  .footer {
+    padding: 5px;
+    font-size: 10px;
+  }
 }
